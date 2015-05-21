@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -85,7 +86,7 @@ func main() {
 	wg2.Add(1)
 	go func() {
 
-		//	fmt.Println("open file")
+		fmt.Println("open file")
 		inFile, err := os.Open("stock.cvs")
 		defer inFile.Close()
 
@@ -109,36 +110,55 @@ func main() {
 		wg2.Done()
 	}()
 
-	var currentValue float64
-	var nextValue float64
+	var currentStock s.Stock
 	var nextStock s.Stock
 
+	transactions := new(s.Transactions)
 	go func() {
 
 		for nextStock = range accumulator {
-
-			nextValue = nextStock.Value
+			transaction := new(s.Transaction)
 			var gain float64 = 0
 			var min float64 = 0
 
 			switch {
 			// Faire les acchats si la prochaines valeurs est plus grande
-			case currentValue < nextValue && currentValue == 0:
+			case currentStock.Value < nextStock.Value && min == 0:
+				transaction.Achat()
+				min = currentStock.Value
+				currentStock.Value = nextStock.Value
+				gain = gain - currentStock.Value
 
-				min = currentValue
-				gain = gain - currentValue
+				// Si on a 0 de gain et que la prochaine valeur est plus petite,
 
-			// Si on a 0 de gain et que la prochaine valeur est plus petite,
-			case currentValue > nextValue && min > 0:
-				currentValue = nextValue
+			case currentStock.Value > nextStock.Value && min == 0:
+				min = nextStock.Value
+				currentStock.Value = nextStock.Value
 
+			case currentStock.Value > nextStock.Value && min > 0:
+				transaction.Vente()
+				transaction.SetStock(currentStock)
+				min = 0
+				currentStock.Value = nextStock.Value
+
+			case currentStock.Value < nextStock.Value && min > 0:
+				currentStock.Value = nextStock.Value
+
+			default:
+				fmt.Println("humm..")
 			}
+			transactions.Put(*db, *transaction)
+		}
+		transactionsList := transactions.Get(*db)
+		fmt.Println("liste de transaction")
+		for i := 0; i < len(transactionsList); i++ {
 
-			currentValue = nextValue
+			fmt.Println("type", transactionsList[i].Action)
 
 		}
 
 	}()
+
 	go func() {
 
 		wg2.Wait()
