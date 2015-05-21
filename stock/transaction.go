@@ -10,23 +10,23 @@ import (
 )
 
 type Transaction struct {
-	s      Stock
-	action string
+	Stock  Stock
+	Action string
 }
 
 func (t Transaction) Vente() {
-	t.action = "vente"
+	t.Action = "vente"
 }
 
 func (t Transaction) Achat() {
-	t.action = "achat"
+	t.Action = "achat"
 }
 func (t Transaction) GetStock() Stock {
-	return t.s
+	return t.Stock
 }
 
 func (t Transaction) SetStock(s Stock) {
-	t.s = s
+	t.Stock = s
 }
 
 type Transactions struct {
@@ -43,13 +43,12 @@ func (Transactions) Put(db leveldb.DB, t Transaction) {
 	db.Put(b.Bytes(), nil, nil)
 
 }
-func (Transactions) Get(db leveldb.DB) {
-
-	var t Transaction
-
+func (Transactions) Get(db leveldb.DB) []Transaction {
+	var transactions []Transaction
 	iter := db.NewIterator(nil, nil)
 
 	for iter.Next() {
+		var t Transaction
 		// Remember that the contents of the returned slice should not be modified, and
 		// only valid until the next call to Next.
 		key := iter.Key()
@@ -60,11 +59,12 @@ func (Transactions) Get(db leveldb.DB) {
 			log.Fatal("decode error 1:", err)
 		}
 		//value := iter.Value()
-
+		transactions = append(transactions, t)
 	}
 	iter.Release()
 	err := iter.Error()
 	check(err)
+	return transactions
 }
 
 type Stock struct {
