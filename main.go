@@ -28,17 +28,6 @@ var mutex sync.Mutex
 
 func main() {
 
-	//	defer profile.Start(profile.CPUProfile).Stop()
-	// flag.Parse()
-	// if *cpuprofile != "" {
-	// 	f, err := os.Create(*cpuprofile)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	pprof.StartCPUProfile(f)
-	// 	defer pprof.StopCPUProfile()
-	// }
-
 	var cpuprofile = flag.String("cpuprofile", "", "write  cpu profile to file")
 	flag.Parse()
 	if *cpuprofile != "" {
