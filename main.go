@@ -45,9 +45,10 @@ func main() {
 	defer db.Close()
 
 	var wg2 sync.WaitGroup
+	var wg sync.WaitGroup
 	chanLine := make(chan []byte, 1)
 	accumulator := make(chan s.Stock, 1)
-
+	wg.Add(1)
 	go func() {
 
 		for line := range chanLine {
@@ -59,13 +60,12 @@ func main() {
 				//skip this
 				panic(data)
 			} else {
-
+				wg.Add(1)
 				thisStock := new(s.Stock)
 
 				virgule := 28
 				//				fmt.Println(virgule)
 				thisStock.Date = data[0 : virgule-1]
-				//	fmt.Println(string(thisStock.Date))
 
 				thisStock.Value, err = u.Float64frombytes3(data[virgule:])
 				//				fmt.Println("Process", thisStock.value)
@@ -117,6 +117,7 @@ func main() {
 	go func() {
 
 		for nextStock = range accumulator {
+			fmt.Println(nextStock.Value)
 			transaction := new(s.Transaction)
 			var gain float64 = 0
 			var min float64 = 0
@@ -148,6 +149,8 @@ func main() {
 				fmt.Println("humm..")
 			}
 			transactions.Put(*db, *transaction)
+
+			wg.Done()
 		}
 		transactionsList := transactions.Get(*db)
 		fmt.Println("liste de transaction")
@@ -162,9 +165,18 @@ func main() {
 	go func() {
 
 		wg2.Wait()
+		fmt.Println("close2")
 		close(chanLine)
+		wg.Done()
+	}()
 
+	go func() {
+
+		wg.Wait()
+		fmt.Println("close1")
+		close(accumulator)
 	}()
 	wg2.Wait()
+	wg.Wait()
 
 }
