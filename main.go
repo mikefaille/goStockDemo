@@ -11,7 +11,6 @@ import (
 
 	s "github.com/mikefaille/sm360Stock/stock"
 	u "github.com/mikefaille/sm360Stock/util"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 import _ "net/http/pprof"
 
@@ -40,12 +39,9 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	db, err := leveldb.OpenFile("my.db", nil)
-	u.Check(err)
-	defer db.Close()
-
 	var wg2 sync.WaitGroup
 	var wg sync.WaitGroup
+	var wg3 sync.WaitGroup
 	chanLine := make(chan []byte, 1)
 	accumulator := make(chan s.Stock, 1)
 	wg.Add(1)
@@ -60,13 +56,13 @@ func main() {
 				//skip this
 				panic(data)
 			} else {
-				wg.Add(1)
+				wg.Add(2)
 				thisStock := new(s.Stock)
 
 				virgule := 28
 				//				fmt.Println(virgule)
 				thisStock.Date = data[0 : virgule-1]
-
+				var err error
 				thisStock.Value, err = u.Float64frombytes3(data[virgule:])
 				//				fmt.Println("Process", thisStock.value)
 				if err != nil {
@@ -77,7 +73,7 @@ func main() {
 
 					accumulator <- *thisStock
 				}
-
+				wg.Done()
 			}
 
 		}
@@ -109,57 +105,96 @@ func main() {
 		}
 		wg2.Done()
 	}()
+	const dbfile = "out.tmp"
+	f2, err := os.Create(dbfile)
+	u.Check(err)
+	defer f2.Close()
+	transactions := []s.Transaction{}
 
-	var currentStock s.Stock
-	var nextStock s.Stock
-
-	transactions := new(s.Transactions)
 	go func() {
+		wg3.Add(1)
+		var nextStock s.Stock
+		var currentStock s.Stock
+		//	transactions := new(s.Transactions)
+		var gain float64 = 0
+		var min float64 = 0
 
 		for nextStock = range accumulator {
-			fmt.Println(nextStock.Value)
-			transaction := new(s.Transaction)
-			var gain float64 = 0
-			var min float64 = 0
 
-			switch {
-			// Faire les acchats si la prochaines valeurs est plus grande
-			case currentStock.Value < nextStock.Value && min == 0:
-				transaction.Achat()
-				min = currentStock.Value
-				currentStock.Value = nextStock.Value
-				gain = gain - currentStock.Value
+			if currentStock.Value == 0 {
+				currentStock = nextStock
+				wg.Done()
 
-				// Si on a 0 de gain et que la prochaine valeur est plus petite,
+			} else {
+				transaction := new(s.Transaction)
 
-			case currentStock.Value > nextStock.Value && min == 0:
-				min = nextStock.Value
-				currentStock.Value = nextStock.Value
+				switch {
 
-			case currentStock.Value > nextStock.Value && min > 0:
-				transaction.Vente()
-				transaction.SetStock(currentStock)
-				min = 0
-				currentStock.Value = nextStock.Value
+				// Faire les acchats si la prochaines valeurs est plus grande
+				case currentStock.Value < nextStock.Value && min == 0:
+					fmt.Println("cas 1")
+					transaction.Action = "achat"
+					min = currentStock.Value
 
-			case currentStock.Value < nextStock.Value && min > 0:
-				currentStock.Value = nextStock.Value
+					gain = gain - currentStock.Value
+					transaction.S = currentStock
 
-			default:
-				fmt.Println("humm..")
+					transactions = append(transactions, *transaction)
+					// Si on a 0 de gain et que la prochaine valeur est plus petite,
+					break
+				case currentStock.Value > nextStock.Value && min == 0:
+					fmt.Println("cas 2")
+					min = nextStock.Value
+					break
+				case currentStock.Value > nextStock.Value && min > 0:
+					fmt.Println("cas 3")
+					transaction.Action = "vente"
+					transaction.S = currentStock
+					min = 0
+					transactions = append(transactions, *transaction)
+					break
+				case currentStock.Value < nextStock.Value && min > 0:
+
+					fmt.Println("cas 4")
+					break
+				// case nextStock.Value == 0:
+				// 	fmt.Println("cas 3")
+				// 	transaction := new(s.Transaction)
+				// 	transaction.Action = "vente"
+				// 	transaction.SetStock(currentStock)
+				// 	min = 0
+				// 	transactions = append(transactions, *transaction)
+
+				default:
+					fmt.Println("humm..")
+					break
+				}
+
+				transaction.S = currentStock
+				fmt.Println("thisStock", currentStock.Value)
+
+				currentStock = nextStock
+				wg.Done()
 			}
-			transactions.Put(*db, *transaction)
 
-			wg.Done()
 		}
-		transactionsList := transactions.Get(*db)
+
+		fmt.Print
+		fmt.Println("cas 3")
+		transaction := new(s.Transaction)
+		transaction.Action = "vente"
+		transaction.S = nextStock
+		min = 0
+		transactions = append(transactions, *transaction)
 		fmt.Println("liste de transaction")
-		for i := 0; i < len(transactionsList); i++ {
+		for i := 0; i < len(transactions); i++ {
 
-			fmt.Println("type", transactionsList[i].Action)
-
+			fmt.Println("type", transactions[i].Action)
+			fmt.Println("date", transactions[i].S.Date)
+			fmt.Println("value", transactions[i].S.Value)
 		}
 
+		wg3.Done()
 	}()
 
 	go func() {
@@ -178,5 +213,5 @@ func main() {
 	}()
 	wg2.Wait()
 	wg.Wait()
-
+	wg3.Wait()
 }
