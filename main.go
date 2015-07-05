@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sync"
+	"time"
 
 	s "github.com/mikefaille/sm360Stock/stock"
 	u "github.com/mikefaille/sm360Stock/util"
@@ -16,7 +17,8 @@ import _ "net/http/pprof"
 
 //var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
-const NCPU = 4
+var min s.Stock
+var max s.Stock
 
 type dataToCompute struct {
 	current chan float64
@@ -25,10 +27,14 @@ type dataToCompute struct {
 }
 
 var mutex sync.Mutex
+var elapsed time.Time
+var start time.Time
 
 func main() {
 
 	var cpuprofile = flag.String("cpuprofile", "", "write  cpu profile to file")
+	var file = flag.String("file", "stockprices_sample_10000.csv", "Filename")
+	var lineNb = flag.Int64("nbline", 200, "Nombre de ligne")
 	flag.Parse()
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -38,52 +44,67 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+	start = time.Now()
 
 	var wg2 sync.WaitGroup
 	var wg sync.WaitGroup
 	var wg3 sync.WaitGroup
-	chanLine := make(chan []byte, 1)
-	accumulator := make(chan s.Stock, 1)
+	chanLine := make(chan []byte, *lineNb)
+	accumulator := make(chan s.Stock, *lineNb)
+	wg3.Add(1)
+	wg2.Add(1)
 	wg.Add(1)
 	go func() {
 
-		for line := range chanLine {
+		for data := range chanLine {
 
-			data := make([]byte, len(line))
-			copy(data, line)
+			//			data := make([]byte, len(line))
+			//			copy(data, line)
 
 			if len(data) < 29 {
 				//skip this
-				panic(data)
+
 			} else {
-				wg.Add(2)
+
 				thisStock := new(s.Stock)
 
 				virgule := 28
 				//				fmt.Println(virgule)
 				thisStock.Date = data[0 : virgule-1]
 				var err error
+
 				thisStock.Value, err = u.Float64frombytes3(data[virgule:])
 				//				fmt.Println("Process", thisStock.value)
 				if err != nil {
+
+					// if len(data) == 29 {
+
+					// 	wg.Add(1)
+					// 	accumulator <- *thisStock
+					// } else {
+					//	fmt.Println(string(data))
 					panic(err)
+
 				} else {
 
 					//					fmt.Println("le nombre", thisStock.value)
-
+					wg.Add(1)
 					accumulator <- *thisStock
 				}
-				wg.Done()
+
 			}
 
 		}
 
+		wg.Done()
+
 	}()
-	wg2.Add(1)
+
 	go func() {
 
-		fmt.Println("open file")
-		inFile, err := os.Open("stock.cvs")
+		inFile, err := os.Open(*file)
+		//		inFile, err := os.Open("stock.cvs")
+
 		defer inFile.Close()
 
 		u.Check(err)
@@ -91,12 +112,13 @@ func main() {
 		r := bufio.NewReader(inFile)
 
 		scanner := bufio.NewScanner(r)
-
+		var outFinal []byte
 		for scanner.Scan() {
 
 			out := scanner.Bytes()
 			if out != nil {
-				outFinal := make([]byte, len(out))
+
+				outFinal = make([]byte, len(out))
 				copy(outFinal, out)
 				chanLine <- outFinal
 
@@ -104,94 +126,65 @@ func main() {
 
 		}
 		wg2.Done()
+
 	}()
-	const dbfile = "out.tmp"
-	f2, err := os.Create(dbfile)
-	u.Check(err)
-	defer f2.Close()
-	transactions := []s.Transaction{}
+
+	//	transactions := []s.Transaction{}
 
 	go func() {
-		wg3.Add(1)
+
 		var nextStock s.Stock
 		var currentStock s.Stock
 		//	transactions := new(s.Transactions)
-		var gain float64 = 0
-		var min float64 = 0
 
+		min.Value = 9999999999
+
+		max.Value = 0
 		for nextStock = range accumulator {
 
 			if currentStock.Value == 0 {
 				currentStock = nextStock
-				wg.Done()
 
 			} else {
-				transaction := new(s.Transaction)
+				//	transaction := new(s.Transaction)
 
 				switch {
 
-				// Faire les acchats si la prochaines valeurs est plus grande
-				case currentStock.Value < nextStock.Value && min == 0:
-					fmt.Println("cas 1")
-					transaction.Action = "achat"
-					min = currentStock.Value
+				case currentStock.Value < nextStock.Value && currentStock.Value < min.Value:
+					min = currentStock
 
-					gain = gain - currentStock.Value
-					transaction.S = currentStock
+					break
 
-					transactions = append(transactions, *transaction)
-					// Si on a 0 de gain et que la prochaine valeur est plus petite,
-					break
-				case currentStock.Value > nextStock.Value && min == 0:
-					fmt.Println("cas 2")
-					min = nextStock.Value
-					break
-				case currentStock.Value > nextStock.Value && min > 0:
-					fmt.Println("cas 3")
-					transaction.Action = "vente"
-					transaction.S = currentStock
-					min = 0
-					transactions = append(transactions, *transaction)
-					break
-				case currentStock.Value < nextStock.Value && min > 0:
+				case currentStock.Value > nextStock.Value && currentStock.Value > max.Value:
+					max = currentStock
 
-					fmt.Println("cas 4")
 					break
-				// case nextStock.Value == 0:
-				// 	fmt.Println("cas 3")
-				// 	transaction := new(s.Transaction)
-				// 	transaction.Action = "vente"
-				// 	transaction.SetStock(currentStock)
-				// 	min = 0
-				// 	transactions = append(transactions, *transaction)
 
 				default:
-					fmt.Println("humm..")
+
 					break
 				}
 
-				transaction.S = currentStock
-				fmt.Println("thisStock", currentStock.Value)
-
 				currentStock = nextStock
+
 				wg.Done()
+
 			}
 
 		}
 
-		fmt.Print
-		fmt.Println("cas 3")
-		transaction := new(s.Transaction)
-		transaction.Action = "vente"
-		transaction.S = nextStock
-		min = 0
-		transactions = append(transactions, *transaction)
-		fmt.Println("liste de transaction")
-		for i := 0; i < len(transactions); i++ {
+		switch {
 
-			fmt.Println("type", transactions[i].Action)
-			fmt.Println("date", transactions[i].S.Date)
-			fmt.Println("value", transactions[i].S.Value)
+		case nextStock.Value < min.Value:
+			min = currentStock
+
+			break
+
+		case nextStock.Value > max.Value:
+			max = currentStock
+
+			break
+
 		}
 
 		wg3.Done()
@@ -200,18 +193,34 @@ func main() {
 	go func() {
 
 		wg2.Wait()
-		fmt.Println("close2")
+
 		close(chanLine)
 		wg.Done()
+
 	}()
 
 	go func() {
-
+		fmt.Println("test")
 		wg.Wait()
-		fmt.Println("close1")
 		close(accumulator)
+		wg3.Wait()
+
 	}()
-	wg2.Wait()
+
 	wg.Wait()
+	wg2.Wait()
 	wg3.Wait()
+	redraw_all()
+
+}
+
+func redraw_all() {
+
+	delay := time.Since(start).Nanoseconds()
+	fmt.Printf("Profit maximal de [%.3f]\n", max.Value-min.Value)
+	fmt.Printf("Achat des actions [%.3f] @ [%s]\n", min.Value, min.Date)
+	fmt.Printf("Vente des actions [%.3f] @ [%s]\n", max.Value, max.Date)
+	fmt.Printf("Temps d'exécution [%d]ms\n", delay/int64(time.Millisecond))
+	fmt.Printf("Temps d'exécution [%d]ms\n", delay)
+
 }

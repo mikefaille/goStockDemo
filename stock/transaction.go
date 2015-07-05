@@ -1,14 +1,8 @@
 package stock
 
 import (
-	"bufio"
 	"bytes"
-	"encoding/gob"
 	"fmt"
-	"log"
-	"os"
-
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Transaction struct {
@@ -52,115 +46,115 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (Transactions) Put(db leveldb.DB, t Transaction) {
-	var network bytes.Buffer
-	//	buf := new(bytes.Buffer)
+// func (Transactions) Put(db leveldb.DB, t Transaction) {
+// 	var network bytes.Buffer
+// 	//	buf := new(bytes.Buffer)
 
-	enc := gob.NewEncoder(&network)
-	err := enc.Encode(&t)
-	if err != nil {
-		log.Fatal("encode:", err)
-	}
+// 	enc := gob.NewEncoder(&network)
+// 	err := enc.Encode(&t)
+// 	if err != nil {
+// 		log.Fatal("encode:", err)
+// 	}
 
-	// err := dec.Decode(&t)
-	// if err != nil {
-	// 	log.Fatal("decode error 1:", err)
-	// }
-	//value := iter.Value()
-	//	transactions = append(transactions, t)
-	err = db.Put(network.Bytes(), nil, nil)
-	check(err)
+// 	// err := dec.Decode(&t)
+// 	// if err != nil {
+// 	// 	log.Fatal("decode error 1:", err)
+// 	// }
+// 	//value := iter.Value()
+// 	//	transactions = append(transactions, t)
+// 	err = db.Put(network.Bytes(), nil, nil)
+// 	check(err)
 
-}
+// }
 
-func (Transactions) Put2(f *os.File, t Transaction) {
+// func (Transactions) Put2(f *os.File, t Transaction) {
 
-	var network bytes.Buffer
-	//	buf := new(bytes.Buffer)
+// 	var network bytes.Buffer
+// 	//	buf := new(bytes.Buffer)
 
-	enc := gob.NewEncoder(&network)
-	err := enc.Encode(&t)
-	if err != nil {
-		log.Fatal("encode:", err)
-	}
+// 	enc := gob.NewEncoder(&network)
+// 	err := enc.Encode(&t)
+// 	if err != nil {
+// 		log.Fatal("encode:", err)
+// 	}
 
-	n3, err := f.Write(network.Bytes())
-	_, err = f.WriteString("\n")
-	f.Sync()
-	fmt.Printf("wrote %d bytes\n", n3)
-}
-func (Transactions) Get(db leveldb.DB) []Transaction {
+// 	n3, err := f.Write(network.Bytes())
+// 	_, err = f.WriteString("\n")
+// 	f.Sync()
+// 	fmt.Printf("wrote %d bytes\n", n3)
+// }
+// func (Transactions) Get(db leveldb.DB) []Transaction {
 
-	var transactions []Transaction
+// 	var transactions []Transaction
 
-	iter := db.NewIterator(nil, nil)
+// 	iter := db.NewIterator(nil, nil)
 
-	for iter.Next() {
-		k := bytes.NewBuffer(iter.Key())
-		dec := gob.NewDecoder(k)
-		var t Transaction
-		err := dec.Decode(&t)
-		check(err)
-		// if err != nil {
-		// 	log.Fatal("decode:", err)
-		// }
-		// Remember that the contents of the returned slice should not be modified, an
+// 	for iter.Next() {
+// 		k := bytes.NewBuffer(iter.Key())
+// 		dec := gob.NewDecoder(k)
+// 		var t Transaction
+// 		err := dec.Decode(&t)
+// 		check(err)
+// 		// if err != nil {
+// 		// 	log.Fatal("decode:", err)
+// 		// }
+// 		// Remember that the contents of the returned slice should not be modified, an
 
-		//value := iter.Value()
-		//		fmt.Println(string(key))
-		fmt.Println("best date :", t)
+// 		//value := iter.Value()
+// 		//		fmt.Println(string(key))
+// 		fmt.Println("best date :", t)
 
-		// err := dec.Decode(&t)
-		// if err != nil {
-		// 	log.Fatal("decode error 1:", err)
-		// }
-		//value := iter.Value()
-		transactions = append(transactions, t)
-	}
-	iter.Release()
-	err := iter.Error()
-	check(err)
-	return transactions
-}
+// 		// err := dec.Decode(&t)
+// 		// if err != nil {
+// 		// 	log.Fatal("decode error 1:", err)
+// 		// }
+// 		//value := iter.Value()
+// 		transactions = append(transactions, t)
+// 	}
+// 	iter.Release()
+// 	err := iter.Error()
+// 	check(err)
+// 	return transactions
+// }
 
-func (Transactions) Get2(f *os.File) []Transaction {
-	w := bufio.NewWriter(f)
-	n4, err := w.WriteString("buffered\n")
-	check(err)
-	fmt.Printf("wrote %d bytes\n", n4)
-	var transactions []Transaction
+// func (Transactions) Get2(f *os.File) []Transaction {
+// 	w := bufio.NewWriter(f)
+// 	n4, err := w.WriteString("buffered\n")
+// 	check(err)
+// 	fmt.Printf("wrote %d bytes\n", n4)
+// 	var transactions []Transaction
 
-	r := bufio.NewReader(f)
+// 	r := bufio.NewReader(f)
 
-	scanner := bufio.NewScanner(r)
+// 	scanner := bufio.NewScanner(r)
 
-	for scanner.Scan() {
+// 	for scanner.Scan() {
 
-		out := scanner.Bytes()
+// 		out := scanner.Bytes()
 
-		k := bytes.NewBuffer(out)
-		dec := gob.NewDecoder(k)
-		var t Transaction
-		err := dec.Decode(&t)
-		check(err)
-		// if err != nil {
-		// 	log.Fatal("decode:", err)
-		// }
-		// Remember that the contents of the returned slice should not be modified, an
+// 		k := bytes.NewBuffer(out)
+// 		dec := gob.NewDecoder(k)
+// 		var t Transaction
+// 		err := dec.Decode(&t)
+// 		check(err)
+// 		// if err != nil {
+// 		// 	log.Fatal("decode:", err)
+// 		// }
+// 		// Remember that the contents of the returned slice should not be modified, an
 
-		//value := iter.Value()
-		//		fmt.Println(string(key))
-		fmt.Println("best date :", t)
-		transactions = append(transactions, t)
-	}
-	// err := dec.Decode(&t)
-	// if err != nil {
-	// 	log.Fatal("decode error 1:", err)
-	// }
-	//value := iter.Value()
+// 		//value := iter.Value()
+// 		//		fmt.Println(string(key))
+// 		fmt.Println("best date :", t)
+// 		transactions = append(transactions, t)
+// 	}
+// 	// err := dec.Decode(&t)
+// 	// if err != nil {
+// 	// 	log.Fatal("decode error 1:", err)
+// 	// }
+// 	//value := iter.Value()
 
-	return transactions
-}
+// 	return transactions
+// }
 
 type Stock struct {
 	Date  []byte
