@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	s "github.com/mikefaille/sm360Stock/stock"
-	u "github.com/mikefaille/sm360Stock/util"
+	s "github.com/mikefaille/goStockDemo/stock"
+	u "github.com/mikefaille/goStockDemo/util"
 )
 import _ "net/http/pprof"
 
