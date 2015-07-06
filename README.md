@@ -21,4 +21,4 @@ Profiling - SVG output :
 pprof015.svg
 
 
-Go doc for use profiling tools : http://blog.golang.org/profiling-go-programs
+Go doc for using profiling tools : http://blog.golang.org/profiling-go-programs
