@@ -33,7 +33,7 @@ var start time.Time
 func main() {
 
 	var cpuprofile = flag.String("cpuprofile", "", "write  cpu profile to file")
-	var file = flag.String("file", "stockprices_sample_10000.csv", "Filename")
+	var file = flag.String("file", "stockprices_sample_1000000.csv", "Filename")
 	var lineNb = flag.Int64("nbline", 200, "Nombre de ligne")
 	flag.Parse()
 	if *cpuprofile != "" {
@@ -88,7 +88,7 @@ func main() {
 				} else {
 
 					//					fmt.Println("le nombre", thisStock.value)
-					wg.Add(1)
+
 					accumulator <- *thisStock
 				}
 
@@ -167,8 +167,6 @@ func main() {
 
 				currentStock = nextStock
 
-				wg.Done()
-
 			}
 
 		}
@@ -195,13 +193,13 @@ func main() {
 		wg2.Wait()
 
 		close(chanLine)
-		wg.Done()
 
 	}()
 
 	go func() {
-		fmt.Println("test")
+
 		wg.Wait()
+
 		close(accumulator)
 		wg3.Wait()
 
@@ -221,6 +219,6 @@ func redraw_all() {
 	fmt.Printf("Achat des actions [%.3f] @ [%s]\n", min.Value, min.Date)
 	fmt.Printf("Vente des actions [%.3f] @ [%s]\n", max.Value, max.Date)
 	fmt.Printf("Temps d'exécution [%d]ms\n", delay/int64(time.Millisecond))
-	fmt.Printf("Temps d'exécution [%d]ms\n", delay)
+	fmt.Printf("Temps d'exécution [%d]ns\n", delay)
 
 }
